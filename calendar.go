@@ -4,6 +4,13 @@ import (
 	"time"
 )
 
+//allow user to reset this
+var DEFAULT_WEEKS_BY_QUATER = [][]int{
+	{4, 4, 5}, //month; it can be 445 or 544; user maintain the correctness and consistency.
+	{4, 4, 5},
+	{4, 4, 5},
+	{4, 4, 5},
+} //default four quaters
 //Calendar, given a Fiscal Year, generate quater, month, week and day
 type Calendar struct {
 	Quaters []*Quater
@@ -18,32 +25,22 @@ type Calendar struct {
 	fc               *Year
 }
 type Quater struct {
+	OrderRel int
+
 	Months []*Month
 }
 
 type Month struct {
-	Weeks []*Week
+	OrderRel      int
+	OrderAbs      int
+	_weeksInMonth int
+	Weeks         []*Week
 }
 
 type Week struct {
-	Days []*time.Time
-}
-
-func DateEqual(a, b time.Time) bool {
-	return dateToInt(a) == dateToInt(b)
-}
-
-func dateToInt(d time.Time) int {
-	return d.Year()*10000 + int(d.Month()*100) + d.Day()
-}
-
-//is a before b
-func DateLessThan(a, b time.Time) bool {
-	return dateToInt(a) < dateToInt(b)
-
-}
-func DateGreaterThan(a, b time.Time) bool {
-	return dateToInt(a) > dateToInt(b)
+	OrderRel int
+	OrderAbs int
+	Days     []*time.Time
 }
 
 func __sum(a []int) int {
@@ -57,12 +54,7 @@ func __sum(a []int) int {
 func NewCalendar(fc *Year) *Calendar {
 	ret := new(Calendar)
 	ret.fc = fc
-	ret._weeks_by_quater = [][]int{
-		{4, 4, 5}, //month
-		{4, 4, 5},
-		{4, 4, 5},
-		{4, 4, 5},
-	} //default four quaters
+	ret._weeks_by_quater = DEFAULT_WEEKS_BY_QUATER
 	return ret.Generate()
 }
 
@@ -79,6 +71,45 @@ func (self *Calendar) Generate() *Calendar {
 	if numWeeks == 53 {
 		self._weeks_by_quater[len(self._weeks_by_quater)-1][len(self._weeks_by_quater[len(self._weeks_by_quater)-1])-1] += 1
 	}
-	days := numWeeks * 7
+	//	days := numWeeks * 7
+	monthOrder := 0
+	weekOrder := 0
+	dayOrder := 0
+	for qi, _quater := range self._weeks_by_quater {
+
+		quater := new(Quater)
+		quater.OrderRel = qi + 1
+		self.Quaters = append(self.Quaters, quater)
+
+		for mi, weeksInMonth := range _quater {
+
+			month := new(Month)
+			month._weeksInMonth = weeksInMonth
+			month.OrderRel = mi + 1
+			monthOrder += 1
+			month.OrderAbs = monthOrder
+			quater.Months = append(quater.Months, month)
+
+			//create weeks
+			for wi := 0; wi < weeksInMonth; wi++ {
+				week := new(Week)
+				week.OrderRel = wi + 1
+				weekOrder += 1
+				week.OrderAbs = weekOrder
+
+				month.Weeks = append(month.Weeks, week)
+				for di := 0; di < 7; di++ {
+					day := self.fc.YearStart.AddDate(0, 0, dayOrder)
+					dayOrder += 1
+					week.Days = append(week.Days, &day)
+				}
+			}
+		}
+
+	}
 	return self
+}
+
+func NewCal(year int) *Calendar {
+	return NewCalendar(NewYear(year))
 }
